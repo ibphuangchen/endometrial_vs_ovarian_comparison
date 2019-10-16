@@ -45,5 +45,5 @@ draw(sigAnno+Ht)
 hallMarkScoreMedian_sig = hallMarkScoreMedian[names(anovaPadj<0.01),]
 rownames(hallMarkScoreMedian_sig) = gsub(rownames(hallMarkScoreMedian_sig), pattern = "HALLMARK_", replacement = "")
 ComplexHeatmap::Heatmap(hallMarkScoreMedian_sig, clustering_distance_rows = "spearman", 
-                        name = "Pathway\nActivity", row_names_gp = gpar(fontsize = 5), cluster_columns = F)
+                        name = "Pathway\nActivity", row_names_gp = grid::gpar(fontsize = 5), cluster_columns = F)
 #cluster_columns = T, clustering_distance_columns = "euclidean")

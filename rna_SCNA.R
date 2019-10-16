@@ -4,7 +4,7 @@
 ucecRNA = read.table("./gdac.broadinstitute.org_UCEC.mRNAseq_Preprocess.Level_3.2016012800.0.0/UCEC.uncv2.mRNAseq_RSEM_normalized_log2.txt",sep = "\t",header = T, row.names = 1)
 dim(ucecRNA) #18536   581
 ovRNA = read.table("./OV/gdac.broadinstitute.org_OV.mRNAseq_Preprocess.Level_3.2016012800.0.0/OV.uncv2.mRNAseq_RSEM_normalized_log2.txt", sep = "\t", row.names = 1, header = T)
-dim(ovRNA) 
+dim(ovRNA)
 range(ovRNA,na.rm = T)
 commonGenes = intersect(rownames(ucecRNA),rownames(ovRNA))
 commonGenes = commonGenes[!grepl(commonGenes,pattern = "\\?")]
@@ -21,6 +21,8 @@ saveRDS(ovRNA, file = "ovRNA.rds")
 # ovRNA = knnImputation(ovRNA)
 ucecRNA = readRDS("./afterKNNucecRNA.rds")
 ovRNA = readRDS("./afterKNNovRNA.rds")
+# table(substr(colnames(ucecRNA),13,16))
+# table(substr(colnames(ovRNA),13,16))
 colnames(ovRNA) = gsub(colnames(ovRNA), pattern = "\\.", replacement = "-")
 
 ovRNA = ovRNA[,grepl(colnames(ovRNA),pattern = "01$")]
@@ -47,6 +49,44 @@ library(ggfortify)
 autoplot(prcomp(totalRNA[,1:(ncol(totalRNA)-1)]), data = totalRNA, colour = "anno", frame = TRUE, frame.type = 'norm')
 autoplot(prcomp(totalRNA[,1:(ncol(totalRNA)-1)]), data = totalRNA, colour = "anno")
 
+####performing sample-wise spearman correlation for all possible sample pairs
+selectGenes = apply(totalRNA[,-ncol(totalRNA)], 2, var)
+selectGenes = sort(selectGenes, decreasing = TRUE)
+selectGenes = names(selectGenes)[1:1000]
+
+endoSerousCor = cor(t(totalRNA[totalRNA$anno=="Endometrioid",selectGenes]), t(totalRNA[totalRNA$anno=="Serous",selectGenes]), method = "spearman")
+mean(endoSerousCor)
+sd(endoSerousCor)
+
+endoOVCor = cor(t(totalRNA[totalRNA$anno=="Endometrioid",selectGenes]), t(totalRNA[totalRNA$anno=="OV",selectGenes]), method = "spearman")
+mean(endoOVCor)
+sd(endoOVCor)
+
+SerousOVCor = cor(t(totalRNA[totalRNA$anno=="Serous",selectGenes]), t(totalRNA[totalRNA$anno=="OV",selectGenes]), method = "spearman")
+mean(SerousOVCor)
+sd(SerousOVCor)
+
+t.test(endoSerousCor,SerousOVCor)
+t.test(endoSerousCor,endoOVCor)
+t.test(SerousOVCor,endoOVCor)
+
+endoCor = cor(t(totalRNA[totalRNA$anno=="Endometrioid",selectGenes]), t(totalRNA[totalRNA$anno=="Endometrioid",selectGenes]), method = "spearman")
+mean(endoCor)
+sd(endoCor)
+
+OVCor = cor(t(totalRNA[totalRNA$anno=="OV",selectGenes]), t(totalRNA[totalRNA$anno=="OV",selectGenes]), method = "spearman")
+mean(OVCor)
+sd(OVCor)
+
+SerousCor = cor(t(totalRNA[totalRNA$anno=="Serous",selectGenes]), t(totalRNA[totalRNA$anno=="Serous",selectGenes]), method = "spearman")
+mean(SerousCor)
+sd(SerousCor)
+
+sampleWiseCorDf = data.frame(cor = c(endoCor,SerousCor,OVCor,endoSerousCor,SerousOVCor,endoOVCor), 
+           type = rep(c("Endometroid EC","Serous-like EC", "Serous OvCa","Endometroid EC vs. Serous-like EC","Serous-like EC vs. Serous OvCa","Endometroid EC vs. Serous OvCa"),
+               c(length(endoCor),length(SerousCor), length(OVCor), length(endoSerousCor), length(SerousOVCor), length(endoOVCor))))
+sampleWiseCorDf$type = factor(sampleWiseCorDf$type, levels = unique(sampleWiseCorDf$type))
+ggplot(sampleWiseCorDf, aes(type, cor))+geom_boxplot()
 ####check the expression of tissue-specific gene
 endoSpGene = read.table("./uterus_genes.txt", sep = "\t", header = T, stringsAsFactors = F, skip = 1)
 ovSpGene = read.table("ovary_genes.txt", sep = "\t", header = T, stringsAsFactors = F,skip = 1)
@@ -126,6 +166,79 @@ plotAmp$type = c(rep("UCEC",length(ucecSerousSamples)),rep("OV",ncol(ovCNVDel)))
 plotAmp$type = factor(plotAmp$type, levels = c("UCEC","OV"))
 plotAmp = plotAmp %>% gather(key = "Arm", value = "log2Ratio", 1:3)
 ggplot(plotAmp,aes(Arm, log2Ratio, fill = type))+geom_boxplot()
+
+ucecGeneLevel = fread("./gdac.broadinstitute.org_UCEC-TP.CopyNumber_Gistic2.Level_4.2016012800.0.0/all_data_by_genes.txt",
+                           sep = "\t")
+ovGeneLevel = fread("./gdac.broadinstitute.org_OV-TP.CopyNumber_Gistic2.Level_4.2016012800.0.0/all_data_by_genes.txt",
+                      sep = "\t")
+ucecGeneLevelB = fread("./gdac.broadinstitute.org_UCEC-TP.CopyNumber_Gistic2.Level_4.2016012800.0.0/all_thresholded.by_genes.txt",
+                       sep = "\t")
+ovGeneLevelB = fread("./gdac.broadinstitute.org_OV-TP.CopyNumber_Gistic2.Level_4.2016012800.0.0/all_thresholded.by_genes.txt",
+                       sep = "\t")
+#only keep the chromosome 4
+ucecGeneLevel = as.data.frame(ucecGeneLevel)
+ovGeneLevel = as.data.frame(ovGeneLevel)
+ucecGeneLevelB = as.data.frame(ucecGeneLevelB)
+ovGeneLevelB = as.data.frame(ovGeneLevelB)
+#ovGeneLevelB = as.data.frame(ovGeneLevelB[grepl(Cytoband, pattern = "^4")])
+rownames(ucecGeneLevel) = ucecGeneLevel$`Gene Symbol`
+rownames(ucecGeneLevelB) = ucecGeneLevelB$`Gene Symbol`
+rownames(ovGeneLevel) = ovGeneLevel$`Gene Symbol`
+rownames(ovGeneLevelB) = ovGeneLevelB$`Gene Symbol`
+
+ucecGeneLevel = ucecGeneLevel[grepl(colnames(ucecGeneLevel), pattern = "-01A")]
+ucecGeneLevelB = ucecGeneLevelB[grepl(colnames(ucecGeneLevelB), pattern = "-01A")]
+ovGeneLevel = ovGeneLevel[grepl(colnames(ovGeneLevel), pattern = "-01A")]
+ovGeneLevelB = ovGeneLevelB[grepl(colnames(ovGeneLevelB), pattern = "-01A")]
+ovGeneLevelB = ovGeneLevelB[grepl(colnames(ovGeneLevelB), pattern = "-01A")]
+
+colnames(ucecGeneLevel) = substr(colnames(ucecGeneLevel), 1, 12)
+colnames(ucecGeneLevelB) = substr(colnames(ucecGeneLevelB), 1, 12)
+colnames(ovGeneLevel) = substr(colnames(ovGeneLevel), 1, 12)
+colnames(ovGeneLevelB) = substr(colnames(ovGeneLevelB), 1, 12)
+
+endoGeneLevel= ucecGeneLevel[, rownames(totalCNV)[totalCNV$anno == "Endometrioid"]]
+serousGeneLevel= ucecGeneLevel[, rownames(totalCNV)[totalCNV$anno == "Serous"]]
+ovGeneLevel= ovGeneLevel[, rownames(totalCNV)[totalCNV$anno == "OV"]]
+endoGeneLevelB= ucecGeneLevelB[, rownames(totalCNV)[totalCNV$anno == "Endometrioid"]]
+serousGeneLevelB= ucecGeneLevelB[, rownames(totalCNV)[totalCNV$anno == "Serous"]]
+ovGeneLevelB= ovGeneLevelB[, rownames(totalCNV)[totalCNV$anno == "OV"]]
+
+all(rownames(endoGeneLevel) == rownames(serousGeneLevel))
+all(rownames(endoGeneLevel) == rownames(ovGeneLevelB))
+chr4CN_diff = lapply(1:nrow(endoGeneLevel) , function(x)t.test(as.numeric(serousGeneLevel[x,]),as.numeric(ovGeneLevelB[x,])))
+names(chr4CN_diff) = rownames(endoGeneLevel)
+chr4CN_diff_p = sapply(chr4CN_diff, function(x)x$p.value)
+chr4CN_diff_p = sort(chr4CN_diff_p)
+chr4CN_diff_p[1:50]
+cosmic = fread("~/OneDrive/Census_allWed Sep 18 04_11_25 2019.tsv")
+cosmicSuppressor = cosmic[grepl(`Role in Cancer`, pattern = "TSG"),`Gene Symbol`]
+chr4CN_diff_p_sig=names(chr4CN_diff_p[intersect(cosmicSuppressor,names(chr4CN_diff))])
+chr4qPlot = cbind(endoGeneLevel[chr4CN_diff_p_sig,],
+                  serousGeneLevel[chr4CN_diff_p_sig,],
+                  ovGeneLevel[chr4CN_diff_p_sig,])
+chr4qPlot = t(chr4qPlot)
+chr4qPlot = as.data.frame(chr4qPlot)
+chr4qPlot$anno = rep(c("Endo","Serous","OV"), c(ncol(endoGeneLevel), ncol(serousGeneLevel), ncol(ovGeneLevel)))
+chr4qPlot$anno = factor(chr4qPlot$anno, levels = c("Endo","Serous","OV"))
+chr4qPlot = chr4qPlot %>% gather(key = "gene", value = "cn", 1:(ncol(chr4qPlot)-1))
+ggplot(chr4qPlot, aes(gene, cn, col = anno))+
+  geom_boxplot(outlier.size = 0.5)+
+  theme(axis.text.x = element_text(angle = -90))
+
+endoChr4Del = apply(endoGeneLevelB[chr4CN_diff_p_sig,], 1, function(x)sum(x< 0)/length(x))
+SerousChr4Del = apply(serousGeneLevelB[chr4CN_diff_p_sig,], 1, function(x)sum(x< 0)/length(x))
+OvChr4Del = apply(ovGeneLevelB[chr4CN_diff_p_sig,], 1, function(x)sum(x < 0)/length(x))
+                  
+chr4qPlot2 = data.frame(gene = rep(chr4CN_diff_p_sig,3), 
+                        proportion = c(endoChr4Del,SerousChr4Del,OvChr4Del),
+                        anno = rep(c("Endo","Serous","OV"), each=length(chr4CN_diff_p_sig)))
+chr4qPlot2$anno = factor(chr4qPlot2$anno, levels = c("Endo","Serous","OV"))
+
+ggplot(chr4qPlot2, aes(gene, proportion, fill = anno))+
+  geom_bar(stat = "identity", position=position_dodge())+
+  theme(axis.text.x = element_text(angle = -90))
+
 
 #####
 library(TCGAbiolinks)

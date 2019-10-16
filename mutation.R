@@ -23,8 +23,11 @@ length(unique(endoMaf$Tumor_Sample_Barcode)) #391
 SerousMaf = ucecMaf %>% filter(Tumor_Sample_Barcode %in% names(ucecHis)[ucecHis == "Serous"])
 length(unique(SerousMaf$Tumor_Sample_Barcode)) #110
 SerousMutStat = SerousMaf %>% group_by(Hugo_Symbol) %>% distinct(Tumor_Sample_Barcode) %>% count(Hugo_Symbol,name = "count") %>% arrange(desc(count))
+SerousMutStat$proportion = SerousMutStat$count/110
 EndoMutStat = endoMaf %>% group_by(Hugo_Symbol) %>% distinct(Tumor_Sample_Barcode) %>% count(Hugo_Symbol,name = "count") %>% arrange(desc(count))
+EndoMutStat$proportion = EndoMutStat$count/391
 ovMutStat = ovMaf %>% group_by(Hugo_Symbol) %>% distinct(Tumor_Sample_Barcode) %>% count(Hugo_Symbol,name = "count") %>% arrange(desc(count))
+ovMutStat$proportion = ovMutStat$count/436
 mutPlot = rbind(SerousMutStat[1:20,],EndoMutStat[1:20,],ovMutStat[1:20,])
 mutPlot$type = rep(c("Serous","Endometroid","Ovarian"),each = 20)
 mutPlot$proportion = mutPlot$count/rep(c(110,391,436), each=20)
@@ -57,3 +60,32 @@ ggplot(combineCount, aes(x=type, y=mutation_load))+
   theme_classic()+theme(axis.text.x = element_text(angle = -90, size = 10))
   
 t.test(endoCount$mutation_load, SerousCount$mutation_load)
+
+##comparison for specific sfes: Ciriello et al, 2015
+sfe = read.csv("./sfe.csv", stringsAsFactors = F)
+sfe = sfe$Alteration
+sfe = sfe[!grepl(sfe, pattern = "chr")]
+length(sfe)
+sfe = intersect(sfe,rownames(endoGeneLevel))
+
+EndoMutStat= as.data.frame(EndoMutStat); rownames(EndoMutStat) = EndoMutStat$Hugo_Symbol
+SerousMutStat= as.data.frame(SerousMutStat); rownames(SerousMutStat) = SerousMutStat$Hugo_Symbol
+ovMutStat= as.data.frame(ovMutStat); rownames(ovMutStat) = ovMutStat$Hugo_Symbol
+
+endoGeneLevel_scna_mut = data.frame(scna = apply(endoGeneLevelB[sfe,], 1, function(x)sum(abs(x)==2)/length(x)),
+                                    mutation = EndoMutStat[sfe,"proportion"])
+serousGeneLevel_scna_mut = data.frame(scna = apply(serousGeneLevelB[sfe,], 1, function(x)sum(abs(x)==2)/length(x)),
+                                    mutation = SerousMutStat[sfe,"proportion"])
+serousGeneLevel_scna_mut$mutation[is.na(serousGeneLevel_scna_mut$mutation)] = 0
+ovGeneLevel_scna_mut = data.frame(scna = apply(ovGeneLevelB[sfe,], 1, function(x)sum(abs(x)==2)/length(x)),
+                                    mutation = ovMutStat[sfe,"proportion"])
+ovGeneLevel_scna_mut$mutation[is.na(ovGeneLevel_scna_mut$mutation)] = 0
+ggplot(endoGeneLevel_scna_mut, aes(scna,mutation))+geom_point()
+ggplot(serousGeneLevel_scna_mut, aes(scna,mutation))+geom_point()
+ggplot(ovGeneLevel_scna_mut, aes(scna,mutation))+geom_point()
+wilcox.test(endoGeneLevel_scna_mut$scna, endoGeneLevel_scna_mut$mutation, alternative = "less")
+wilcox.test(serousGeneLevel_scna_mut$scna, endoGeneLevel_scna_mut$mutation, alternative = "less")
+wilcox.test(ovGeneLevel_scna_mut$scna, endoGeneLevel_scna_mut$mutation, alternative = "less")
+wilcox.test(endoGeneLevel_scna_mut$scna, endoGeneLevel_scna_mut$mutation, alternative = "greater")
+wilcox.test(serousGeneLevel_scna_mut$scna, endoGeneLevel_scna_mut$mutation, alternative = "greater")
+wilcox.test(ovGeneLevel_scna_mut$scna, endoGeneLevel_scna_mut$mutation, alternative = "greater")

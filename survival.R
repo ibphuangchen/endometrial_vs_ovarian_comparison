@@ -94,8 +94,31 @@ serousSurCoxP = sapply(serousSurCox, function(x)summary(x)$logtest[3])
 serousSurCoxP = sort(serousSurCoxP)
 endoSurvCoxP = sapply(endoSurvCox, function(x)summary(x)$logtest[3])
 endoSurvCoxP = sort(endoSurvCoxP)
-intersect(names(serousSurCoxP)[serousSurCoxP<0.01], names(endoSurvCoxP)[endoSurvCoxP<0.01])
-intersect(names(serousSurCoxP)[serousSurCoxP<0.01], names(ovSurvCoxP)[ovSurv<0.01])
+twoEC_commonSurvGenes = intersect(names(serousSurCoxP)[serousSurCoxP<0.05], names(endoSurvCoxP)[endoSurvCoxP<0.05])
+intersect(names(serousSurCoxP)[serousSurCoxP<0.05], names(ovSurvCoxP)[ovSurv<0.05])
+twoEC_commonSurvGenes_logRank_endo = sapply(twoEC_commonSurvGenes, function(x)survByMedian(scoreVec = setNames(as.numeric(ucecRNA[x,endosurvsamples]), endosurvsamples),
+                                                                               surv = data.frame(time = suhasEndo[endosurvsamples,"overall_survival"], 
+                                                                                                 event = suhasEndo[endosurvsamples,"status"], 
+                                                                                                 row.names = endosurvsamples), 
+                                                                               plot = F))
+twoEC_commonSurvGenes_logRank_serous = sapply(twoEC_commonSurvGenes, function(x)survByMedian(scoreVec = setNames(as.numeric(ucecRNA[x,seroussurvsamples]), seroussurvsamples),
+                                                                                           surv = data.frame(time = suhasSerous[seroussurvsamples,"overall_survival"], 
+                                                                                                             event = suhasSerous[seroussurvsamples,"status"], 
+                                                                                                             row.names = seroussurvsamples), 
+                                                                                           plot = F))
+twoEC_commonSurvGene_cIdx = sapply(twoEC_commonSurvGenes, function(x)survByMedian(scoreVec = setNames(as.numeric(ucecRNA[x,seroussurvsamples]), seroussurvsamples),
+                                                                                  surv = data.frame(time = suhasSerous[seroussurvsamples,"overall_survival"], 
+                                                                                                    event = suhasSerous[seroussurvsamples,"status"], 
+                                                                                                    row.names = seroussurvsamples), 
+                                                                                  plot = F)$himsc.cIndex)
+twoEC_commonSurvGenes_df = data.frame(symbol = gsub(twoEC_commonSurvGenes, pattern = "\\|.*", replacement = ""),
+                                       entrezID = gsub(twoEC_commonSurvGenes, pattern = ".*\\|", replacement = ""),
+                                        CoxPH_p_value_endo = endoSurvCoxP[twoEC_commonSurvGenes],
+                                       CoxPH_p_value_serous = serousSurCoxP[twoEC_commonSurvGenes],
+                                       log_rank_pvalue_endo = twoEC_commonSurvGenes_logRank_endo,
+                                      log_rank_pvalue_serous = twoEC_commonSurvGenes_logRank_serous,
+                                      prog_trend = ifelse(twoEC_commonSurvGene_cIdx<0.5, "good","bad"))
+data.table::fwrite(twoEC_commonSurvGenes_df, file = "commonSurvival_genes_table_2.txt", sep = "\t")
 
 survByMedian(scoreVec = setNames(as.numeric(ucecRNA["PHKA1",endosurvsamples]), endosurvsamples),
              surv = data.frame(time = suhasEndo[endosurvsamples,"overall_survival"], 
@@ -110,15 +133,15 @@ survByMedian(scoreVec = setNames(as.numeric(ovRNA["PHKA1", ovsurvsamples]), ovsu
                                event = suhasOV[ovsurvsamples,"status"], row.names = ovsurvsamples),
              plot = T)
 
-survByMedian(scoreVec = setNames(as.numeric(ucecRNA["DCTN6",endosurvsamples]), endosurvsamples),
+survByMedian(scoreVec = setNames(as.numeric(ucecRNA["CXCR5",endosurvsamples]), endosurvsamples),
              surv = data.frame(time = suhasEndo[endosurvsamples,"overall_survival"], 
                                event = suhasEndo[endosurvsamples,"status"], row.names = endosurvsamples),
              plot = T)
-survByMedian(scoreVec = setNames(as.numeric(ucecRNA["DCTN6", seroussurvsamples]), seroussurvsamples),
+survByMedian(scoreVec = setNames(as.numeric(ucecRNA["CXCR5", seroussurvsamples]), seroussurvsamples),
              surv = data.frame(time = suhasSerous[seroussurvsamples,"overall_survival"], 
                                event = suhasSerous[seroussurvsamples,"status"], row.names = seroussurvsamples),
              plot = T)
-survByMedian(scoreVec = setNames(as.numeric(ovRNA["DCTN6", ovsurvsamples]), ovsurvsamples),
+survByMedian(scoreVec = setNames(as.numeric(ovRNA["CXCR5", ovsurvsamples]), ovsurvsamples),
              surv = data.frame(time = suhasOV[ovsurvsamples,"overall_survival"], 
                                event = suhasOV[ovsurvsamples,"status"], row.names = ovsurvsamples),
              plot = T)
